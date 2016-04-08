@@ -1,6 +1,7 @@
 package com.nuthrow.game.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -13,11 +14,13 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.Box2DDebugRenderer;
+import com.badlogic.gdx.physics.box2d.CircleShape;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.nuthrow.game.Nuthrow;
+import com.nuthrow.game.helper.TiledObjectBodyBuilder;
 
 /**
  * Created by mehul on 3/30/16.
@@ -26,11 +29,15 @@ public class GameScreen extends ScreenAdapter {
 
     private static final float WORLD_WIDTH = 960;
     private static final float WORLD_HEIGHT = 544;
-    private static final float UNITS_PER_METER = 16F;
+    private static final float UNITS_PER_METER = 32F;
+    private static float UNIT_WIDTH = WORLD_WIDTH / UNITS_PER_METER;
+    private static float UNIT_HEIGHT = WORLD_HEIGHT / UNITS_PER_METER;
+
     private World world;
     private Box2DDebugRenderer debugRenderer;
     private Body body;
     private OrthographicCamera camera;
+    private OrthographicCamera box2dCamera;
     private Viewport viewport;
     private ShapeRenderer shapeRenderer;
     private Nuthrow nuthrow;
@@ -46,6 +53,7 @@ public class GameScreen extends ScreenAdapter {
     @Override
     public void show() {
         super.show();
+        box2dCamera = new OrthographicCamera(UNIT_WIDTH, UNIT_HEIGHT);
         world = new World(new Vector2(0, -10F), true);
         debugRenderer = new Box2DDebugRenderer();
         body = createBody();
@@ -59,6 +67,18 @@ public class GameScreen extends ScreenAdapter {
         spriteBatch = new SpriteBatch();
         orthogonalTiledMapRenderer = new OrthogonalTiledMapRenderer(tiledMap, spriteBatch);
         orthogonalTiledMapRenderer.setView(camera);
+        TiledObjectBodyBuilder.buildBuildingBodies(tiledMap, world);
+        TiledObjectBodyBuilder.bulidFloorBodies(tiledMap, world);
+        TiledObjectBodyBuilder.buildBirBodies(tiledMap, world);
+
+        Gdx.input.setInputProcessor(new InputAdapter() {
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer,
+                                     int button) {
+                createBullet();
+                return true;
+            }
+        });
     }
 
     private Body createBody(){
@@ -72,17 +92,29 @@ public class GameScreen extends ScreenAdapter {
         return box;
     }
 
+    private void createBullet(){
+        CircleShape circleShape = new CircleShape();
+        circleShape.setRadius(0.5f);
+        circleShape.setPosition(new Vector2(3, 6));
+        BodyDef bd = new BodyDef();
+        bd.type = BodyDef.BodyType.DynamicBody;
+        Body bullet = world.createBody(bd);
+        bullet.createFixture(circleShape, 0);
+        circleShape.dispose();
+        bullet.setLinearVelocity(10, 6);
+    }
+
     @Override
     public void render(float delta) {
         super.render(delta);
         update(delta);
         clearScreen();
-        drawDebug();
         draw();
+        drawDebug();
     }
 
     private void drawDebug(){
-        debugRenderer.render(world, camera.combined);
+        debugRenderer.render(world, box2dCamera.combined);
     }
 
     private void draw(){
@@ -92,6 +124,8 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void update(float delta){
+        box2dCamera.position.set(UNIT_WIDTH / 2, UNIT_HEIGHT / 2, 0);
+        box2dCamera.update();
         world.step(delta, 6, 2);
         body.setAwake(true);
     }
