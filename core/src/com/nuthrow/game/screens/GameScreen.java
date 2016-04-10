@@ -87,20 +87,43 @@ public class GameScreen extends ScreenAdapter {
         box2dCamera = new OrthographicCamera(UNIT_WIDTH, UNIT_HEIGHT);
         world = new World(new Vector2(0, -10F), true);
         debugRenderer = new Box2DDebugRenderer();
+
         body = createBody();
         body.setTransform(100, 120, 0);
+
         camera = new OrthographicCamera();
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         viewport.apply(true);
+
         shapeRenderer = new ShapeRenderer();
+        spriteBatch = new SpriteBatch();
+
         tiledMap = nuthrow.getAssetManager().get("nuthrow_tileMap.tmx", TiledMap.class);
         //tiledMap = nuthrow.getAssetManager().get("nuttybirds.tmx", TiledMap.class);
-        spriteBatch = new SpriteBatch();
         orthogonalTiledMapRenderer = new OrthogonalTiledMapRenderer(tiledMap, spriteBatch);
         orthogonalTiledMapRenderer.setView(camera);
         TiledObjectBodyBuilder.buildBuildingBodies(tiledMap, world);
         TiledObjectBodyBuilder.bulidFloorBodies(tiledMap, world);
         TiledObjectBodyBuilder.buildBirBodies(tiledMap, world);
+
+        Gdx.input.setInputProcessor(new InputAdapter() {
+            @Override
+            public boolean touchDragged(int screenX, int screenY, int
+                    pointer) {
+                calculateAngleAndDistanceForBullet(screenX, screenY);
+                return true;
+            }
+
+            @Override
+            public boolean touchUp(int screenX, int screenY, int pointer,
+                                   int button) {
+                createBullet();
+                firingPosition.set(anchor.cpy());
+                return true;
+            }
+        });
+
+        world.setContactListener(new NuttyContactListener());
 
         Array<Body> bodies = new Array<Body>();
         world.getBodies(bodies);
@@ -116,65 +139,7 @@ public class GameScreen extends ScreenAdapter {
         squirrel.setPosition(32, 64);
         staticAcorn = new Sprite(nuthrow.getAssetManager().get("acorn.png", Texture.class));
 
-        world.setContactListener(new NuttyContactListener());
-        Gdx.input.setInputProcessor(new InputAdapter() {
-            @Override
-            public boolean touchDragged(int screenX, int screenY, int
-                    pointer) {
-                calculateAngleAndDistanceForBullet(screenX, screenY);
-                return true;
-            }
-            @Override
-            public boolean touchUp(int screenX, int screenY, int pointer,
-                                   int button) {
-                createBullet();
-                firingPosition.set(anchor.cpy());
-                return true;
-            } });
 
-    }
-
-    private void update(float delta){
-        clearDeadBodies();
-        world.step(delta, 6, 2);
-        body.setAwake(true);
-        updateSpritePositions();
-        box2dCamera.position.set(UNIT_WIDTH / 2, UNIT_HEIGHT / 2, 0);
-        box2dCamera.update();
-    }
-
-    private void createBullet(){
-        CircleShape circleShape = new CircleShape();
-        circleShape.setRadius(0.5f);
-        circleShape.setPosition(new Vector2(convertUnitsToMetres(firingPosition.x), convertUnitsToMetres(firingPosition.y)));
-        BodyDef bd = new BodyDef();
-        bd.type = BodyDef.BodyType.DynamicBody;
-        Body bullet = world.createBody(bd);
-        bullet.createFixture(circleShape, 1);
-        Sprite sprite = new Sprite(nuthrow.getAssetManager().get
-                ("acorn.png", Texture.class));
-        sprite.setOrigin(sprite.getWidth() / 2, sprite.getHeight() / 2);
-        sprites.put(bullet, sprite);
-        circleShape.dispose();
-        float velX = Math.abs( (MAX_STRENGTH * -MathUtils.cos(angle) *
-                (distance / 100f)));
-        float velY = Math.abs( (MAX_STRENGTH * -MathUtils.sin(angle) *
-                (distance / 100f)));
-        bullet.setLinearVelocity(velX, velY);
-    }
-
-    private void updateSpritePositions(){
-        for(Body body : sprites.keys()){
-            Sprite sprite = sprites.get(body);
-            sprite.setPosition(convertMetresToUnits(body.getPosition().x)
-            - sprite.getWidth() / 2f,
-                    convertMetresToUnits(body.getPosition().y)
-            - sprite.getHeight() / 2f);
-            sprite.setRotation(MathUtils.radiansToDegrees * body.getAngle());
-        }
-        staticAcorn.setPosition(firingPosition.x -
-                staticAcorn.getWidth() / 2f, firingPosition.y -
-                staticAcorn.getHeight() / 2f);
     }
 
     @Override
@@ -184,6 +149,51 @@ public class GameScreen extends ScreenAdapter {
         clearScreen();
         draw();
         drawDebug();
+    }
+
+    private void update(float delta){
+        clearDeadBodies();
+        world.step(delta, 6, 2);
+        body.setAwake(true);
+        box2dCamera.position.set(UNIT_WIDTH / 2, UNIT_HEIGHT / 2, 0);
+        box2dCamera.update();
+        updateSpritePositions();
+    }
+
+    private void updateSpritePositions(){
+        for(Body body : sprites.keys()){
+            Sprite sprite = sprites.get(body);
+            sprite.setPosition(convertMetresToUnits(body.getPosition().x) - sprite.getWidth() / 2f,
+                               convertMetresToUnits(body.getPosition().y) - sprite.getHeight() / 2f);
+            sprite.setRotation(MathUtils.radiansToDegrees * body.getAngle());
+        }
+        staticAcorn.setPosition(firingPosition.x - staticAcorn.getWidth() / 2f, firingPosition.y -
+                staticAcorn.getHeight() / 2f);
+    }
+
+    private void createBullet(){
+        CircleShape circleShape = new CircleShape();
+        circleShape.setRadius(0.5f);
+        //circleShape.setPosition(new Vector2(convertUnitsToMetres(firingPosition.x), convertUnitsToMetres(firingPosition.y)));
+        BodyDef bd = new BodyDef();
+        bd.type = BodyDef.BodyType.DynamicBody;
+        Body bullet = world.createBody(bd);
+        bullet.setUserData("acorn");
+        bullet.createFixture(circleShape, 1);
+        bullet.setTransform(new Vector2(convertUnitsToMetres(firingPosition.x), convertUnitsToMetres(firingPosition.y)), 0);
+
+        Sprite sprite = new Sprite(nuthrow.getAssetManager().get
+                ("acorn.png", Texture.class));
+        sprite.setOrigin(sprite.getWidth() / 2, sprite.getHeight() / 2);
+        sprites.put(bullet, sprite);
+
+        circleShape.dispose();
+
+        float velX = Math.abs( (MAX_STRENGTH * -MathUtils.cos(angle) *
+                (distance / 100f)));
+        float velY = Math.abs( (MAX_STRENGTH * -MathUtils.sin(angle) *
+                (distance / 100f)));
+        bullet.setLinearVelocity(velX, velY);
     }
 
     private void drawDebug(){
@@ -256,6 +266,7 @@ public class GameScreen extends ScreenAdapter {
     }
     private void calculateAngleAndDistanceForBullet(int screenX, int screenY){
         firingPosition.set(screenX, screenY);
+        //this step is important
         viewport.unproject(firingPosition);
         distance = distanceBetweenTwoPoints();
         angle = angleBetweenTwoPoints();
@@ -270,8 +281,8 @@ public class GameScreen extends ScreenAdapter {
                 angle = LOWER_ANGLE;
             }
         }
-        firingPosition.set(anchor.x +  (distance * -
-                MathUtils.cos(angle)), anchor.y +  (distance * -
+        firingPosition.set(anchor.x + (distance * -
+                MathUtils.cos(angle)), anchor.y + (distance * -
                 MathUtils.sin(angle)));
     }
 
