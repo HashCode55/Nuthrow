@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -40,7 +41,15 @@ public class LoadingScreen extends ScreenAdapter {
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         shapeRenderer = new ShapeRenderer();
         nuthrow.getAssetManager().load("nuthrow_tileMap.tmx", TiledMap.class);
-        nuthrow.getAssetManager().load("nuttybirds.tmx", TiledMap.class);
+        //nuthrow.getAssetManager().load("nuttybirds.tmx", TiledMap.class);
+        nuthrow.getAssetManager().load("obstacleVertical.png", Texture.class);
+        nuthrow.getAssetManager().load("obstacleHorizontal.png", Texture.class);
+        nuthrow.getAssetManager().load("bird.png", Texture.class);
+        nuthrow.getAssetManager().load("slingshot.png",
+                Texture.class);
+        nuthrow.getAssetManager().load("squirrel.png", Texture.class);
+        nuthrow.getAssetManager().load("acorn.png", Texture.class);
+        nuthrow.getAssetManager().finishLoading();
     }
 
     @Override
